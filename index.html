@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MALANDRO</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #14532d; color: #fff; max-width: 520px; margin: 0 auto; padding: 20px; }
+    h1 { text-align: center; letter-spacing: 4px; }
+    .caja { background: #166534; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    input, select, button { font-size: 16px; padding: 10px; border-radius: 6px; border: none; width: 100%; box-sizing: border-box; margin-top: 8px; }
+    button { background: #facc15; color: #000; font-weight: bold; cursor: pointer; }
+    button:disabled { background: #888; cursor: not-allowed; }
+    .oculto { display: none; }
+    #codigo-sala { font-size: 40px; font-weight: bold; text-align: center; letter-spacing: 8px; }
+    li { padding: 4px 0; }
+    #mensaje { text-align: center; min-height: 24px; color: #fde68a; }
+
+    #estado { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 12px; color: #fde68a; }
+    #aviso-canto { text-align: center; font-weight: bold; background: #b91c1c; border-radius: 8px; padding: 8px; margin-bottom: 12px; }
+    #centro { display: flex; justify-content: center; gap: 30px; }
+    .pila { text-align: center; }
+    .fila { display: flex; flex-wrap: wrap; }
+    .carta { width: 58px; height: 84px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 3px; box-sizing: border-box; text-align: center; }
+    .dorso { background: #1e3a8a; color: #93c5fd; border: 2px solid #fff; }
+    .frente { background: #fff; color: #000; border: 2px solid #000; font-size: 15px; }
+    .elegible { cursor: pointer; box-shadow: 0 0 6px 2px #facc15; }
+    .elegida { outline: 4px solid #facc15; }
+    .turno { box-shadow: 0 0 0 3px #facc15; }
+    .nombre-jugador { font-weight: bold; margin-bottom: 4px; }
+    .btn-canto { background: #ef4444; color: #fff; }
+    #resultado p { margin: 6px 0; }
+    #resultado .titulo { font-size: 18px; font-weight: bold; color: #fde68a; }
+    .espera { text-align: center; color: #fde68a; }
+  </style>
+</head>
+<body>
+  <h1>MALANDRO</h1>
+
+  <div id="inicio">
+    <div class="caja">
+      <label>Tu nombre</label>
+      <input id="nombre" maxlength="15" placeholder="Ej: Diego">
+    </div>
+    <div class="caja">
+      <button id="btn-crear">Crear sala nueva</button>
+    </div>
+    <div class="caja">
+      <label>O entrá a una sala con su código</label>
+      <input id="codigo" maxlength="4" placeholder="Ej: ABCD">
+      <button id="btn-unirse">Unirme</button>
+    </div>
+  </div>
+
+  <div id="sala" class="oculto">
+    <div class="caja">
+      <div>Código de la sala (pasáselo a tus amigos):</div>
+      <div id="codigo-sala"></div>
+    </div>
+    <div class="caja">
+      <strong>Jugadores (<span id="cantidad"></span>/8)</strong>
+      <ul id="lista"></ul>
+    </div>
+    <div class="caja">
+      <label>Puntos para terminar la partida</label>
+      <select id="limite">
+        <option value="30">30</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+        <option value="150">150</option>
+        <option value="200">200</option>
+      </select>
+      <button id="btn-empezar">Empezar partida</button>
+    </div>
+  </div>
+
+  <div id="mesa" class="oculto">
+    <div id="estado"></div>
+    <div id="aviso-canto" class="oculto"></div>
+    <div class="caja">
+      <div id="centro"></div>
+    </div>
+    <div id="resultado" class="caja oculto"></div>
+    <div id="acciones"></div>
+    <button id="btn-ver">Ver las 2 cartas elegidas (5 segundos)</button>
+    <div id="jugadores" style="margin-top:14px"></div>
+    <div id="info-limite" style="text-align:center"></div>
+  </div>
+
+  <p id="mensaje"></p>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const $ = (id) => document.getElementById(id);
+    const ICONOS = { oro: "🪙", copa: "🏆", espada: "⚔️", basto: "🌿" };
+    const PODER_TEXTO = {
+      "ver-propia": "Poder del 7: elegí una carta tuya para mirarla",
+      "ver-ajena": "Poder del 8: elegí una carta de otro jugador para mirarla",
+      "cambiar": "Poder del 9: elegí una carta tuya y después una de otro jugador para cambiarlas",
+    };
+
+    let mesa = null;             // ultimo estado de la mesa que mando el servidor
+    let seleccion = [];          // posiciones de mis cartas que elegi para mirar al inicio
+    let reveladas = {};          // cartas que estoy viendo ahora (5 segundos). Clave: "jugador-posicion"
+    let contadorReveladas = 0;
+    let modo = null;             // null, "levantar" o "cambiar"
+    let selPropia = null;        // para el poder del 9: mi carta elegida
+
+    // ---------- Llave secreta y sala guardadas en esta pestaña (para poder reconectarse) ----------
+    let tokenMemoria = null;
+    function obtenerToken() {
+      if (tokenMemoria) return tokenMemoria;
+      let t = null;
+      try { t = sessionStorage.getItem("malandro-token"); } catch (e) {}
+      if (!t || !/^[a-f0-9]{32}$/.test(t)) {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        t = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+        try { sessionStorage.setItem("malandro-token", t); } catch (e) {}
+      }
+      tokenMemoria = t;
+      return t;
+    }
+
+    let codigoSala = null;
+    try { codigoSala = sessionStorage.getItem("malandro-sala"); } catch (e) {}
+    function guardarSala(codigo) {
+      codigoSala = codigo;
+      try { sessionStorage.setItem("malandro-sala", codigo); } catch (e) {}
+    }
+    function olvidarSala() {
+      codigoSala = null;
+      try { sessionStorage.removeItem("malandro-sala"); } catch (e) {}
+    }
+
+    function mostrarMensaje(texto) {
+      $("mensaje").textContent = texto;
+    }
+
+    function textoCarta(c) {
+      if (c.palo === "comodin") return "🃏 0";
+      return c.valor + " " + ICONOS[c.palo];
+    }
+
+    function crearCarta(texto, clases) {
+      const d = document.createElement("div");
+      d.className = "carta " + clases;
+      d.textContent = texto;
+      return d;
+    }
+
+    // Vuelve a la pantalla de inicio y borra todo lo de la partida
+    function volverAlInicio() {
+      mesa = null;
+      seleccion = [];
+      reveladas = {};
+      modo = null;
+      selPropia = null;
+      $("mesa").classList.add("oculto");
+      $("sala").classList.add("oculto");
+      $("inicio").classList.remove("oculto");
+    }
+
+    // Muestra cartas durante 5 segundos y despues las vuelve a tapar
+    function revelar(lista) {
+      const id = ++contadorReveladas;
+      for (const x of lista) reveladas[x.clave] = { carta: x.carta, id: id };
+      setTimeout(() => {
+        for (const x of lista) {
+          if (reveladas[x.clave] && reveladas[x.clave].id === id) delete reveladas[x.clave];
+        }
+        dibujarMesa();
+      }, 5000);
+      dibujarMesa();
+    }
+
+    // Manda una jugada al servidor
+    function jugada(evento, argumentos, alOk) {
+      socket.emit(evento, ...argumentos, (r) => {
+        modo = null;
+        selPropia = null;
+        if (r.error) {
+          mostrarMensaje(r.error);
+          dibujarMesa();
+          return;
+        }
+        mostrarMensaje("");
+        if (alOk) alOk(r);
+        else dibujarMesa();
+      });
+    }
+
+    // ---------- Conexion y reconexion ----------
+    // "connect" ocurre al abrir la pagina y cada vez que se recupera la conexion
+    socket.on("connect", () => {
+      if (!codigoSala) return;
+      socket.emit("reconectar", { token: obtenerToken(), codigo: codigoSala }, (r) => {
+        if (r.error) {
+          olvidarSala();
+          volverAlInicio();
+          mostrarMensaje(r.error + ". Entrá de nuevo con el código de la sala.");
+        } else {
+          mostrarMensaje("");
+        }
+      });
+    });
+
+    socket.on("disconnect", (motivo) => {
+      if (motivo === "io server disconnect") {
+        mostrarMensaje("Esta sesión se abrió en otra pestaña. Cerrá esta.");
+      } else {
+        mostrarMensaje("Se perdió la conexión. Reconectando...");
+      }
+    });
+
+    // ---------- Pantalla de inicio y sala ----------
+    $("btn-crear").onclick = () => {
+      socket.emit("crear-sala", { nombre: $("nombre").value, token: obtenerToken() }, (r) => {
+        mostrarMensaje(r.error ? r.error : "");
+      });
+    };
+
+    $("btn-unirse").onclick = () => {
+      socket.emit(
+        "unirse",
+        { nombre: $("nombre").value, codigo: $("codigo").value, token: obtenerToken() },
+        (r) => {
+          mostrarMensaje(r.error ? r.error : "");
+        }
+      );
+    };
+
+    $("limite").onchange = () => {
+      socket.emit("cambiar-limite", Number($("limite").value));
+    };
+
+    $("btn-empezar").onclick = () => {
+      socket.emit("empezar", (r) => {
+        if (r.error) mostrarMensaje(r.error);
+      });
+    };
+
+    socket.on("sala", (sala) => {
+      guardarSala(sala.codigo);
+      // Si veniamos de una partida, se limpia la mesa
+      mesa = null;
+      seleccion = [];
+      reveladas = {};
+      modo = null;
+      selPropia = null;
+      $("mesa").classList.add("oculto");
+
+      $("inicio").classList.add("oculto");
+      $("sala").classList.remove("oculto");
+      $("codigo-sala").textContent = sala.codigo;
+      $("cantidad").textContent = sala.jugadores.length;
+
+      const soyAnfitrion = sala.anfitrion === socket.id;
+      const lista = $("lista");
+      lista.innerHTML = "";
+      for (const j of sala.jugadores) {
+        const item = document.createElement("li");
+        let texto = j.nombre;
+        if (j.id === sala.anfitrion) texto += " (anfitrión)";
+        if (j.id === socket.id) texto += " (vos)";
+        item.textContent = texto;
+        lista.appendChild(item);
+      }
+
+      $("limite").value = String(sala.limite);
+      $("limite").disabled = !soyAnfitrion || sala.enJuego;
+      $("btn-empezar").classList.toggle("oculto", !soyAnfitrion);
+      $("btn-empezar").disabled = sala.jugadores.length < 3 || sala.enJuego;
+    });
+
+    // ---------- La mesa ----------
+    function puedoElegir() {
+      return mesa && mesa.fase === "mirando" && !mesa.jugadores[mesa.yo].listo;
+    }
+
+    function esMiTurno() {
+      return mesa && mesa.fase === "jugando" && mesa.turno === mesa.yo;
+    }
+
+    function textoEstado() {
+      if (mesa.fase === "ronda-terminada") return "Ronda terminada";
+      if (mesa.fase === "partida-terminada") return "¡Partida terminada!";
+      if (mesa.fase === "mirando") {
+        if (mesa.jugadores[mesa.yo].listo) {
+          const faltan = mesa.jugadores.filter((j) => !j.listo).map((j) => j.nombre);
+          return "Esperando a: " + faltan.join(", ");
+        }
+        return "Elegí 2 de tus cartas para mirarlas 5 segundos";
+      }
+      if (!esMiTurno()) {
+        let t = "Turno de " + mesa.jugadores[mesa.turno].nombre;
+        if (mesa.poder) t += " (usando un poder)";
+        else if (mesa.hayCartaEnMano) t += " (sacó una carta del mazo)";
+        return t;
+      }
+      if (mesa.poder === "cambiar") {
+        return selPropia === null ? PODER_TEXTO.cambiar : "Ahora elegí la carta del otro jugador";
+      }
+      if (mesa.poder) return PODER_TEXTO[mesa.poder];
+      if (mesa.enMano) {
+        return modo === "cambiar"
+          ? "Elegí cuál de tus cartas cambiar"
+          : "Sacaste " + textoCarta(mesa.enMano) + ". ¿Qué hacés?";
+      }
+      if (modo === "levantar") return "Elegí cuál de tus cartas cambiar por el descarte";
+      if (mesa.accionHecha) {
+        return mesa.puedoCantar ? "Listo. Terminá tu turno o cantá MALANDRO" : "Listo. Terminá tu turno";
+      }
+      return "¡Es tu turno! Sacá del mazo o levantá el descarte";
+    }
+
+    // Que pasa si hago clic en la carta "p" del jugador "i" (null si no se puede)
+    function manejadorCarta(i, p) {
+      if (!esMiTurno()) return null;
+      const mio = i === mesa.yo;
+      if (mesa.poder === "ver-propia" && mio) {
+        return () => jugada("ver-propia", [p], (r) => revelar([{ clave: i + "-" + p, carta: r.carta }]));
+      }
+      if (mesa.poder === "ver-ajena" && !mio) {
+        return () => jugada("ver-ajena", [i, p], (r) => revelar([{ clave: i + "-" + p, carta: r.carta }]));
+      }
+      if (mesa.poder === "cambiar") {
+        if (mio) {
+          return () => {
+            selPropia = selPropia === p ? null : p;
+            dibujarMesa();
+          };
+        }
+        if (selPropia !== null) return () => jugada("cambiar-ciegas", [selPropia, i, p]);
+        return null;
+      }
+      if (mio && modo === "levantar") return () => jugada("levantar-descarte", [p]);
+      if (mio && modo === "cambiar" && mesa.enMano) return () => jugada("cambiar-mano", [p]);
+      return null;
+    }
+
+    function dibujarAcciones() {
+      const cont = $("acciones");
+      cont.innerHTML = "";
+
+      function boton(texto, fn, clase) {
+        const b = document.createElement("button");
+        b.textContent = texto;
+        if (clase) b.className = clase;
+        b.onclick = fn;
+        cont.appendChild(b);
+      }
+
+      if (mesa.fase === "ronda-terminada") {
+        boton("Empezar la siguiente ronda", () => {
+          socket.emit("siguiente-ronda", (r) => {
+            mostrarMensaje(r.error ? r.error : "");
+          });
+        });
+        return;
+      }
+
+      if (mesa.fase === "partida-terminada") {
+        if (mesa.soyAnfitrion) {
+          boton("Jugar otra partida", () => {
+            socket.emit("nueva-partida", (r) => {
+              mostrarMensaje(r.error ? r.error : "");
+            });
+          });
+        } else {
+          const p = document.createElement("p");
+          p.className = "espera";
+          p.textContent = "Esperando a que el anfitrión arme otra partida";
+          cont.appendChild(p);
+        }
+        return;
+      }
+
+      if (!esMiTurno() || mesa.poder) return;
+
+      if (modo) {
+        boton("Cancelar", () => {
+          modo = null;
+          dibujarMesa();
+        });
+        return;
+      }
+      if (mesa.enMano) {
+        boton("Cambiarla por una de mis cartas", () => {
+          modo = "cambiar";
+          dibujarMesa();
+        });
+        boton("Descartarla", () => jugada("descartar-mano", []));
+      } else if (mesa.accionHecha) {
+        if (mesa.puedoTerminar) boton("Terminar turno", () => jugada("terminar-turno", []));
+        if (mesa.puedoCantar) boton("¡Cantar MALANDRO!", () => jugada("cantar-malandro", []), "btn-canto");
+      } else {
+        boton("Sacar del mazo", () => jugada("sacar-mazo", []));
+        boton("Levantar el descarte", () => {
+          modo = "levantar";
+          dibujarMesa();
+        });
+      }
+    }
+
+    function dibujarResultado() {
+      const caja = $("resultado");
+      const r = mesa.resultado;
+      if (!r) {
+        caja.classList.add("oculto");
+        return;
+      }
+      caja.classList.remove("oculto");
+      caja.innerHTML = "";
+
+      function linea(texto, clase) {
+        const p = document.createElement("p");
+        p.textContent = texto;
+        if (clase) p.className = clase;
+        caja.appendChild(p);
+      }
+
+      const quien = mesa.jugadores[r.cantó].nombre;
+      if (r.cantoGano) {
+        linea(quien + " cantó MALANDRO y tenía el menor total: suma 0.", "titulo");
+      } else {
+        linea(quien + " cantó MALANDRO pero NO tenía el menor total: suma su total + 10.", "titulo");
+      }
+      mesa.jugadores.forEach((j, i) => {
+        let t = j.nombre + ": " + r.totales[i] + " en cartas → suma " + r.sumados[i];
+        t += " (acumulado: " + r.puntosAcumulados[i] + ")";
+        linea(t);
+      });
+      if (r.partidaTerminada) {
+        const nombres = r.ganadores.map((i) => mesa.jugadores[i].nombre).join(" y ");
+        linea("🏆 " + (r.ganadores.length > 1 ? "Ganan: " : "Gana: ") + nombres, "titulo");
+      }
+    }
+
+    function dibujarMesa() {
+      if (!mesa) return;
+
+      // Limpiar estados que ya no corresponden
+      if (!esMiTurno()) {
+        modo = null;
+        selPropia = null;
+      }
+      if (modo === "cambiar" && !mesa.enMano) modo = null;
+      if (modo === "levantar" && (mesa.enMano || mesa.accionHecha)) modo = null;
+      if (mesa.poder !== "cambiar") selPropia = null;
+
+      $("estado").textContent = textoEstado();
+
+      // Aviso de ultima vuelta
+      const aviso = $("aviso-canto");
+      if (mesa.fase === "jugando" && mesa.cantó !== null) {
+        aviso.textContent = "¡" + mesa.jugadores[mesa.cantó].nombre + " cantó MALANDRO! Última vuelta";
+        aviso.classList.remove("oculto");
+      } else {
+        aviso.classList.add("oculto");
+      }
+
+      // Centro: mazo, descarte y carta en mano
+      const centro = $("centro");
+      centro.innerHTML = "";
+      const pilaMazo = document.createElement("div");
+      pilaMazo.className = "pila";
+      pilaMazo.appendChild(crearCarta("Mazo", "dorso"));
+      const cant = document.createElement("div");
+      cant.textContent = mesa.mazo + " cartas";
+      pilaMazo.appendChild(cant);
+      const pilaDescarte = document.createElement("div");
+      pilaDescarte.className = "pila";
+      pilaDescarte.appendChild(crearCarta(textoCarta(mesa.descarte), "frente"));
+      const etiqueta = document.createElement("div");
+      etiqueta.textContent = "Descarte";
+      pilaDescarte.appendChild(etiqueta);
+      centro.appendChild(pilaMazo);
+      centro.appendChild(pilaDescarte);
+      if (mesa.hayCartaEnMano && mesa.fase === "jugando") {
+        const pilaMano = document.createElement("div");
+        pilaMano.className = "pila";
+        if (mesa.enMano) pilaMano.appendChild(crearCarta(textoCarta(mesa.enMano), "frente"));
+        else pilaMano.appendChild(crearCarta("?", "dorso"));
+        const et = document.createElement("div");
+        et.textContent = "En mano";
+        pilaMano.appendChild(et);
+        centro.appendChild(pilaMano);
+      }
+
+      dibujarResultado();
+      dibujarAcciones();
+
+      // Boton de ver (solo al principio de cada ronda)
+      $("btn-ver").classList.toggle("oculto", !puedoElegir());
+      $("btn-ver").disabled = seleccion.length !== 2;
+
+      // Jugadores y sus cartas
+      const cont = $("jugadores");
+      cont.innerHTML = "";
+      mesa.jugadores.forEach((j, i) => {
+        const caja = document.createElement("div");
+        const turnoDeEste = mesa.fase === "jugando" && mesa.turno === i;
+        caja.className = "caja" + (turnoDeEste ? " turno" : "");
+
+        const nombre = document.createElement("div");
+        nombre.className = "nombre-jugador";
+        let texto = j.nombre;
+        if (i === mesa.yo) texto += " (vos)";
+        if (!j.conectado) texto += " (desconectado)";
+        texto += " — " + j.puntos + " pts";
+        nombre.textContent = texto;
+        caja.appendChild(nombre);
+
+        const fila = document.createElement("div");
+        fila.className = "fila";
+        for (let p = 0; p < j.cantidadCartas; p++) {
+          const clave = i + "-" + p;
+          let carta;
+          if (mesa.resultado) {
+            // Fin de ronda: todas las cartas se dan vuelta
+            carta = crearCarta(textoCarta(mesa.resultado.cartas[i][p]), "frente");
+          } else if (reveladas[clave]) {
+            carta = crearCarta(textoCarta(reveladas[clave].carta), "frente");
+          } else {
+            carta = crearCarta("?", "dorso");
+          }
+
+          if (!mesa.resultado) {
+            if (puedoElegir() && i === mesa.yo && !reveladas[clave]) {
+              carta.classList.add("elegible");
+              if (seleccion.includes(p)) carta.classList.add("elegida");
+              carta.onclick = () => elegirCarta(p);
+            } else {
+              const accion = manejadorCarta(i, p);
+              if (accion) {
+                carta.classList.add("elegible");
+                carta.onclick = accion;
+              }
+              if (i === mesa.yo && mesa.poder === "cambiar" && selPropia === p) {
+                carta.classList.add("elegida");
+              }
+            }
+          }
+          fila.appendChild(carta);
+        }
+        caja.appendChild(fila);
+        cont.appendChild(caja);
+      });
+
+      $("info-limite").textContent = "La partida termina cuando alguien llega a " + mesa.limite + " puntos";
+    }
+
+    function elegirCarta(posicion) {
+      if (seleccion.includes(posicion)) {
+        seleccion = seleccion.filter((p) => p !== posicion);
+      } else if (seleccion.length < 2) {
+        seleccion.push(posicion);
+      }
+      dibujarMesa();
+    }
+
+    $("btn-ver").onclick = () => {
+      socket.emit("ver-inicial", seleccion, (r) => {
+        if (r.error) {
+          mostrarMensaje(r.error);
+          return;
+        }
+        mostrarMensaje("");
+        const lista = r.cartas.map((c) => ({ clave: mesa.yo + "-" + c.posicion, carta: c }));
+        seleccion = [];
+        revelar(lista);
+      });
+    };
+
+    socket.on("mesa", (datos) => {
+      // Al empezar una ronda nueva, se limpia lo que se habia elegido o visto antes
+      if (datos.fase === "mirando" && (!mesa || mesa.fase !== "mirando")) {
+        seleccion = [];
+        reveladas = {};
+      }
+      mesa = datos;
+      $("inicio").classList.add("oculto");
+      $("sala").classList.add("oculto");
+      $("mesa").classList.remove("oculto");
+      dibujarMesa();
+    });
+  </script>
+</body>
+</html>

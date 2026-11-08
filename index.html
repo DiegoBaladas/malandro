@@ -3,97 +3,462 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#052e16">
   <title>MALANDRO</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='20' fill='%23fbbf24' stroke='%23b45309' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; background: #14532d; color: #fff; max-width: 520px; margin: 0 auto; padding: 20px; }
-    h1 { text-align: center; letter-spacing: 4px; }
-    .caja { background: #166534; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
-    input, select, button { font-size: 16px; padding: 10px; border-radius: 6px; border: none; width: 100%; box-sizing: border-box; margin-top: 8px; }
-    button { background: #facc15; color: #000; font-weight: bold; cursor: pointer; }
-    button:disabled { background: #888; cursor: not-allowed; }
-    .oculto { display: none; }
-    #codigo-sala { font-size: 40px; font-weight: bold; text-align: center; letter-spacing: 8px; }
-    li { padding: 4px 0; }
-    #mensaje { text-align: center; min-height: 24px; color: #fde68a; }
+    :root {
+      --fondo: #04210f;
+      --fieltro1: #17803d;
+      --fieltro2: #0b4a26;
+      --oro: #fbbf24;
+      --vidrio: rgba(255, 255, 255, 0.07);
+      --borde: rgba(255, 255, 255, 0.14);
+      --texto: #f8fafc;
+      --suave: #bbf7d0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--texto);
+      background:
+        radial-gradient(1200px 700px at 50% -10%, #166534 0%, transparent 60%),
+        radial-gradient(800px 600px at 100% 100%, #14532d 0%, transparent 60%),
+        var(--fondo);
+      background-attachment: fixed;
+    }
+    #app { max-width: 760px; margin: 0 auto; padding: 18px 16px 90px; }
 
-    #estado { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 12px; color: #fde68a; }
-    #aviso-canto { text-align: center; font-weight: bold; background: #b91c1c; border-radius: 8px; padding: 8px; margin-bottom: 12px; }
-    #centro { display: flex; justify-content: center; gap: 30px; }
+    h1 {
+      margin: 6px 0 4px;
+      text-align: center;
+      font-size: clamp(34px, 9vw, 52px);
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      background: linear-gradient(180deg, #fde68a, #f59e0b);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+    }
+    .subtitulo { text-align: center; color: var(--suave); margin: 0 0 14px; opacity: 0.85; letter-spacing: 0.08em; font-size: 14px; }
+
+    .caja {
+      background: var(--vidrio);
+      border: 1px solid var(--borde);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 14px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+    label { display: block; font-size: 13px; color: var(--suave); letter-spacing: 0.06em; text-transform: uppercase; }
+
+    input, select {
+      font: inherit;
+      font-size: 16px;
+      width: 100%;
+      padding: 12px 14px;
+      margin-top: 8px;
+      border-radius: 12px;
+      border: 1px solid var(--borde);
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
+      outline: none;
+    }
+    input::placeholder { color: rgba(255, 255, 255, 0.4); }
+    input:focus, select:focus { border-color: var(--oro); box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.25); }
+    select option { color: #000; }
+
+    button {
+      font: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 16px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      color: #3b2300;
+      background: linear-gradient(180deg, #fde68a, #f59e0b);
+      box-shadow: 0 4px 0 #b45309, 0 8px 16px rgba(0, 0, 0, 0.3);
+      transition: transform 0.08s, box-shadow 0.08s, filter 0.15s;
+    }
+    button:hover:not(:disabled) { filter: brightness(1.07); }
+    button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #b45309, 0 4px 8px rgba(0, 0, 0, 0.3); }
+    button:disabled { background: #475569; color: #cbd5e1; box-shadow: 0 4px 0 #334155; cursor: not-allowed; }
+    .btn-sec { color: var(--texto); background: rgba(255, 255, 255, 0.14); box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35); }
+    .btn-sec:active:not(:disabled) { box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+    .btn-canto {
+      color: #fff;
+      background: linear-gradient(180deg, #f87171, #dc2626);
+      box-shadow: 0 4px 0 #7f1d1d, 0 8px 16px rgba(0, 0, 0, 0.3);
+      animation: latido 1.6s ease-in-out infinite;
+    }
+    .btn-canto:active:not(:disabled) { box-shadow: 0 1px 0 #7f1d1d, 0 4px 8px rgba(0, 0, 0, 0.3); }
+    @keyframes latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+
+    .oculto { display: none; }
+
+    /* ---------- Inicio ---------- */
+    #abanico { display: flex; justify-content: center; height: 130px; margin: 4px 0 14px; }
+    #abanico .carta { margin: 0 -0.9em; transform-origin: 50% 130%; }
+    #abanico .carta:nth-child(1) { transform: rotate(-18deg); }
+    #abanico .carta:nth-child(2) { transform: rotate(-6deg); }
+    #abanico .carta:nth-child(3) { transform: rotate(6deg); }
+    #abanico .carta:nth-child(4) { transform: rotate(18deg); }
+
+    /* ---------- Sala de espera ---------- */
+    #codigo-sala { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+    #codigo-sala span {
+      width: 56px; height: 70px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 38px; font-weight: 800; color: #3b2300;
+      background: linear-gradient(180deg, #ffffff, #e2e8f0);
+      border-radius: 12px;
+      box-shadow: 0 4px 0 #94a3b8, 0 8px 16px rgba(0, 0, 0, 0.3);
+    }
+    #lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+    #lista li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; }
+    #lista .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+
+    .avatar {
+      width: 34px; height: 34px; flex: none;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      font-weight: 800; color: #fff;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+    .etiqueta { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: var(--suave); white-space: nowrap; }
+    .etiqueta.oro { background: rgba(251, 191, 36, 0.22); color: var(--oro); }
+
+    /* ---------- Mesa ---------- */
+    #estado {
+      text-align: center; font-size: 18px; font-weight: 600;
+      margin: 0 0 12px; padding: 10px 14px; border-radius: 999px;
+      background: rgba(0, 0, 0, 0.28); border: 1px solid var(--borde); color: #fde68a;
+    }
+    #estado.mi-turno {
+      background: linear-gradient(180deg, #fde68a, #f59e0b);
+      color: #3b2300; border-color: transparent;
+      box-shadow: 0 0 24px rgba(251, 191, 36, 0.45);
+    }
+    #aviso-canto {
+      text-align: center; font-weight: 800; letter-spacing: 0.03em;
+      background: linear-gradient(180deg, #ef4444, #b91c1c);
+      border-radius: 12px; padding: 10px; margin-bottom: 12px;
+      box-shadow: 0 6px 18px rgba(185, 28, 28, 0.45);
+    }
+    .fieltro {
+      border-radius: 26px; padding: 24px 12px 18px; margin-bottom: 14px;
+      background: radial-gradient(ellipse at center, var(--fieltro1) 0%, var(--fieltro2) 100%);
+      border: 6px solid #5b3a1a;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 10px 28px rgba(0, 0, 0, 0.4);
+    }
+    #centro { display: flex; justify-content: center; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
     .pila { text-align: center; }
-    .fila { display: flex; flex-wrap: wrap; }
-    .carta { width: 58px; height: 84px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 3px; box-sizing: border-box; text-align: center; }
-    .dorso { background: #1e3a8a; color: #93c5fd; border: 2px solid #fff; }
-    .frente { background: #fff; color: #000; border: 2px solid #000; font-size: 15px; }
-    .elegible { cursor: pointer; box-shadow: 0 0 6px 2px #facc15; }
-    .elegida { outline: 4px solid #facc15; }
-    .turno { box-shadow: 0 0 0 3px #facc15; }
-    .nombre-jugador { font-weight: bold; margin-bottom: 4px; }
-    .btn-canto { background: #ef4444; color: #fff; }
-    #resultado p { margin: 6px 0; }
-    #resultado .titulo { font-size: 18px; font-weight: bold; color: #fde68a; }
-    .espera { text-align: center; color: #fde68a; }
+    .pila .et { margin-top: 14px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--suave); }
+
+    /* ---------- Cartas ---------- */
+    .carta {
+      position: relative;
+      font-size: 16px;
+      width: 4em; height: 5.8em;
+      margin: 0.2em;
+      border-radius: 0.55em;
+      flex: none;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none;
+      transition: transform 0.15s ease;
+    }
+    .carta.grande { font-size: 20px; }
+    .frente {
+      background: linear-gradient(160deg, #ffffff, #f1f5f9);
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 0.2em 0.5em rgba(0, 0, 0, 0.35);
+    }
+    .frente .esq { position: absolute; font-weight: 800; font-size: 0.95em; line-height: 1; }
+    .frente .esq.arriba { top: 0.35em; left: 0.4em; }
+    .frente .esq.abajo { bottom: 0.35em; right: 0.4em; transform: rotate(180deg); }
+    .frente .icono { width: 2.3em; height: 2.3em; display: block; }
+    .frente .icono svg { width: 100%; height: 100%; display: block; }
+    .palo-oro .esq { color: #b45309; }
+    .palo-copa .esq { color: #b91c1c; }
+    .palo-espada .esq { color: #1d4ed8; }
+    .palo-basto .esq { color: #15803d; }
+    .palo-comodin { background: linear-gradient(160deg, #faf5ff, #e9d5ff); }
+    .palo-comodin .esq { color: #7e22ce; }
+
+    .dorso {
+      color: #fde68a;
+      border: 0.2em solid #f8fafc;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.35) 0 0.9em, transparent 1em),
+        repeating-linear-gradient(45deg, #1e3a8a 0 0.4em, #1e40af 0.4em 0.8em);
+      box-shadow: 0 0.2em 0.5em rgba(0, 0, 0, 0.4);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    }
+    .dorso span { font-size: 1.5em; font-weight: 800; }
+    .mazo-pila {
+      box-shadow:
+        0.15em 0.15em 0 #172554,
+        0.3em 0.3em 0 #1e3a8a,
+        0.45em 0.45em 0 #172554,
+        0.6em 0.6em 0 #1e3a8a,
+        0 0.9em 1em rgba(0, 0, 0, 0.4);
+    }
+
+    .elegible { cursor: pointer; animation: brillo 1.4s ease-in-out infinite; }
+    .elegible:hover { transform: translateY(-6px); }
+    .elegida { transform: translateY(-10px); outline: 0.18em solid var(--oro); outline-offset: 0.1em; }
+    @keyframes brillo {
+      0%, 100% { box-shadow: 0 0 0 0.12em rgba(251, 191, 36, 0.9), 0 0 0.5em rgba(251, 191, 36, 0.5); }
+      50% { box-shadow: 0 0 0 0.18em rgba(251, 191, 36, 1), 0 0 1.1em rgba(251, 191, 36, 0.9); }
+    }
+    .nueva { animation: pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1); }
+    @keyframes pop {
+      from { transform: scale(0.4) translateY(-30px); opacity: 0; }
+      to { transform: none; opacity: 1; }
+    }
+
+    #acciones { display: grid; gap: 10px; margin: 12px 0; }
+    #acciones button { margin-top: 0; }
+    #acciones .espera { text-align: center; color: #fde68a; margin: 6px 0; }
+    #btn-ver { margin-top: 4px; }
+
+    /* ---------- Jugadores ---------- */
+    #jugadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; margin-top: 14px; }
+    .jugador {
+      padding: 12px; border-radius: 16px;
+      background: rgba(0, 0, 0, 0.22); border: 1px solid var(--borde);
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .jugador.yo { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); }
+    .jugador.turno { border-color: var(--oro); box-shadow: 0 0 0 2px var(--oro), 0 0 24px rgba(251, 191, 36, 0.35); }
+    .jugador.off { opacity: 0.55; }
+    .nombre-jugador { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; }
+    .nombre-jugador .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pts { font-size: 13px; padding: 3px 10px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); color: #fde68a; font-weight: 600; white-space: nowrap; }
+    .fila { display: flex; justify-content: center; }
+    .fila .carta { font-size: clamp(12px, 3.9vw, 16px); }
+
+    /* ---------- Resultado ---------- */
+    #resultado .titulo { font-size: 18px; font-weight: 800; color: #fde68a; margin: 0 0 10px; }
+    .res-fila {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 8px 10px; margin-top: 6px; border-radius: 10px;
+      background: rgba(0, 0, 0, 0.22);
+    }
+    .res-fila.cantor { border: 1px solid var(--oro); }
+    .res-fila .nom { flex: 1; font-weight: 600; min-width: 90px; }
+    .res-fila .detalle { font-size: 14px; color: var(--suave); }
+    .res-fila .suma { font-weight: 800; color: #fde68a; }
+    .ganador {
+      margin-top: 12px; padding: 12px; text-align: center; font-size: 22px; font-weight: 800;
+      border-radius: 14px; color: #3b2300;
+      background: linear-gradient(180deg, #fde68a, #f59e0b);
+    }
+
+    .limite { text-align: center; color: var(--suave); font-size: 13px; opacity: 0.8; margin-top: 14px; }
+
+    #mensaje {
+      position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+      max-width: min(92vw, 460px); margin: 0; padding: 12px 18px;
+      border-radius: 14px; z-index: 10;
+      background: rgba(127, 29, 29, 0.96); color: #fff; font-weight: 600; text-align: center;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    #mensaje:empty { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+        /* ---------- Boton de ayuda y ventana de reglas ---------- */
+    #btn-ayuda {
+      position: fixed; top: 12px; right: 12px; z-index: 20;
+      width: 42px; height: 42px; min-height: 0; margin: 0; padding: 0;
+      border-radius: 50%; font-size: 22px; font-weight: 800; line-height: 1;
+    }
+    #reglas {
+      position: fixed; inset: 0; z-index: 30;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      background: rgba(2, 20, 10, 0.78);
+    }
+    #reglas.oculto { display: none; }
+    #reglas .panel {
+      width: 100%; max-width: 560px; max-height: 88vh;
+      display: flex; flex-direction: column; overflow: hidden;
+      border-radius: 20px;
+      background: linear-gradient(180deg, #14532d, #0b3a1e);
+      border: 1px solid var(--borde);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    }
+    #reglas .cab {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 14px 20px; border-bottom: 1px solid var(--borde);
+    }
+    #reglas .cab h2 { margin: 0; font-size: 21px; letter-spacing: 0.06em; color: #fde68a; }
+    #btn-cerrar-reglas {
+      width: 40px; height: 40px; min-height: 0; margin: 0; padding: 0;
+      flex: none; border-radius: 50%; font-size: 18px;
+    }
+    #reglas .cuerpo { overflow-y: auto; padding: 4px 20px 22px; -webkit-overflow-scrolling: touch; }
+    #reglas h3 { margin: 20px 0 6px; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--oro); }
+    #reglas p, #reglas li { margin: 6px 0; font-size: 15px; line-height: 1.55; color: #ecfdf5; }
+    #reglas ul { margin: 6px 0; padding-left: 20px; }
+    #reglas strong { color: #fde68a; }
   </style>
 </head>
 <body>
-  <h1>MALANDRO</h1>
+  <div id="app">
+    <h1>MALANDRO</h1>
 
-  <div id="inicio">
-    <div class="caja">
-      <label>Tu nombre</label>
-      <input id="nombre" maxlength="15" placeholder="Ej: Diego">
+    <div id="inicio">
+      <p class="subtitulo">MEMORIA, PICARDÍA Y UN POCO DE SUERTE</p>
+      <div id="abanico"></div>
+      <div class="caja">
+        <label for="nombre">Tu nombre</label>
+        <input id="nombre" maxlength="15" placeholder="Ej: Diego">
+      </div>
+      <div class="caja">
+        <button id="btn-crear">Crear sala nueva</button>
+      </div>
+      <div class="caja">
+        <label for="codigo">O entrá a una sala con su código</label>
+        <input id="codigo" maxlength="4" placeholder="Ej: ABCD">
+        <button id="btn-unirse" class="btn-sec">Unirme</button>
+      </div>
     </div>
-    <div class="caja">
-      <button id="btn-crear">Crear sala nueva</button>
-    </div>
-    <div class="caja">
-      <label>O entrá a una sala con su código</label>
-      <input id="codigo" maxlength="4" placeholder="Ej: ABCD">
-      <button id="btn-unirse">Unirme</button>
-    </div>
-  </div>
 
-  <div id="sala" class="oculto">
-    <div class="caja">
-      <div>Código de la sala (pasáselo a tus amigos):</div>
-      <div id="codigo-sala"></div>
+    <div id="sala" class="oculto">
+      <div class="caja">
+        <label>Código de la sala · pasáselo a tus amigos</label>
+        <div id="codigo-sala"></div>
+      </div>
+      <div class="caja">
+        <label>Jugadores (<span id="cantidad"></span>/8)</label>
+        <ul id="lista"></ul>
+      </div>
+      <div class="caja">
+        <label for="limite">Puntos para terminar la partida</label>
+        <select id="limite">
+          <option value="30">30</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="150">150</option>
+          <option value="200">200</option>
+        </select>
+        <button id="btn-empezar">Empezar partida</button>
+      </div>
     </div>
-    <div class="caja">
-      <strong>Jugadores (<span id="cantidad"></span>/8)</strong>
-      <ul id="lista"></ul>
-    </div>
-    <div class="caja">
-      <label>Puntos para terminar la partida</label>
-      <select id="limite">
-        <option value="30">30</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-        <option value="150">150</option>
-        <option value="200">200</option>
-      </select>
-      <button id="btn-empezar">Empezar partida</button>
-    </div>
-  </div>
 
-  <div id="mesa" class="oculto">
-    <div id="estado"></div>
-    <div id="aviso-canto" class="oculto"></div>
-    <div class="caja">
-      <div id="centro"></div>
+    <div id="mesa" class="oculto">
+      <div id="estado"></div>
+      <div id="aviso-canto" class="oculto"></div>
+      <div class="fieltro">
+        <div id="centro"></div>
+      </div>
+      <div id="resultado" class="caja oculto"></div>
+      <div id="acciones"></div>
+      <button id="btn-ver">Ver las 2 cartas elegidas (5 segundos)</button>
+      <div id="jugadores"></div>
+      <div id="info-limite" class="limite"></div>
     </div>
-    <div id="resultado" class="caja oculto"></div>
-    <div id="acciones"></div>
-    <button id="btn-ver">Ver las 2 cartas elegidas (5 segundos)</button>
-    <div id="jugadores" style="margin-top:14px"></div>
-    <div id="info-limite" style="text-align:center"></div>
   </div>
 
   <p id="mensaje"></p>
+    <button id="btn-ayuda" aria-label="Reglas del juego" title="Reglas del juego">?</button>
+
+  <div id="reglas" class="oculto" role="dialog" aria-modal="true" aria-labelledby="reglas-titulo">
+    <div class="panel">
+      <div class="cab">
+        <h2 id="reglas-titulo">Reglas de MALANDRO</h2>
+        <button id="btn-cerrar-reglas" class="btn-sec" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="cuerpo">
+        <h3>El objetivo</h3>
+        <p>Terminar cada ronda con la <strong>menor suma posible</strong> entre tus 4 cartas. La partida termina cuando alguien llega al límite de puntos de la sala, y <strong>gana quien tenga menos puntos</strong>.</p>
+
+        <h3>Las cartas</h3>
+        <ul>
+          <li>Se juega con baraja española: del 1 al 12 en los 4 palos (oro, copa, espada y basto), más 2 comodines.</li>
+          <li>Cada carta vale su número. El <strong>comodín vale 0</strong>, la mejor carta.</li>
+          <li>Con 3 o 4 jugadores se usa 1 mazo (50 cartas). Con 5 a 8 jugadores se usan 2 mazos (100 cartas).</li>
+        </ul>
+
+        <h3>Cómo empieza cada ronda</h3>
+        <ul>
+          <li>Cada jugador recibe 4 cartas boca abajo, que no puede mirar.</li>
+          <li>Al comienzo elegís <strong>2 de tus cartas</strong> y las ves durante 5 segundos. Después se tapan: ¡hay que acordarse!</li>
+          <li>Una carta se da vuelta al lado del mazo y ahí empieza el descarte.</li>
+        </ul>
+
+        <h3>Tu turno</h3>
+        <p>Elegís una de estas dos jugadas:</p>
+        <ul>
+          <li><strong>Sacar del mazo:</strong> solo vos ves la carta. Podés <strong>cambiarla</strong> por una de tus 4 cartas (la tuya se va al descarte, boca arriba) o <strong>descartarla</strong> directamente.</li>
+          <li><strong>Levantar el descarte:</strong> tomás la carta de arriba del descarte y <strong>tenés que cambiarla</strong> por una de las tuyas.</li>
+        </ul>
+        <p>Después terminás tu turno, o cantás MALANDRO si creés que podés ganar la ronda.</p>
+
+        <h3>El riesgo</h3>
+        <p>Si cambiás por una carta que no viste, no sabés qué estás tirando. Al descartarse se da vuelta para todos: si es más alta que la que sacaste, te salió joya; si es más baja, te salió mal.</p>
+
+        <h3>Los poderes: 7, 8 y 9</h3>
+        <p>Solo se activan si <strong>sacás la carta del mazo y la descartás directamente</strong>. Si la cambiás por una tuya o la levantás del descarte, no pasa nada. Cuando se activan, son <strong>obligatorios</strong>.</p>
+        <ul>
+          <li><strong>7:</strong> mirás una de tus cartas (5 segundos).</li>
+          <li><strong>8:</strong> mirás una carta de otro jugador (5 segundos).</li>
+          <li><strong>9:</strong> cambiás a ciegas una carta tuya por una de otro jugador, sin mirar ninguna de las dos.</li>
+        </ul>
+
+        <h3>Cantar MALANDRO</h3>
+        <p>Si creés que sumás menos que todos los demás, al final de tu turno (ya jugada tu carta y usado tu poder) apretás <strong>¡Cantar MALANDRO!</strong>. Todos los demás juegan <strong>un turno más</strong> (vos no) y después se dan vuelta todas las cartas.</p>
+
+        <h3>Puntos de la ronda</h3>
+        <ul>
+          <li>Si quien cantó tiene un total <strong>estrictamente menor</strong> que el de todos los demás, suma <strong>0</strong>.</li>
+          <li>Si otro jugador tiene menos o lo mismo, quien cantó suma su total <strong>+ 10</strong>.</li>
+          <li>Todos los demás suman el total de sus cartas, incluso el que tenía menos (porque no cantó).</li>
+        </ul>
+
+        <h3>Final de la partida</h3>
+        <p>Se juegan rondas, y en cada una arranca el jugador siguiente. Cuando alguien llega al límite de puntos elegido al crear la sala, termina la partida y gana quien tenga menos puntos.</p>
+
+        <h3>Consejos</h3>
+        <ul>
+          <li>Aprendete tus 4 cartas lo antes posible: es la mayor ventaja.</li>
+          <li>Prestá atención a lo que levantan los demás y dónde ponen cada carta, por si te sale un 9.</li>
+          <li>Cantar sin conocer todas tus cartas es peligroso, pero los otros pueden estar peor.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     const $ = (id) => document.getElementById(id);
-    const ICONOS = { oro: "🪙", copa: "🏆", espada: "⚔️", basto: "🌿" };
+
+    // Dibujos de los palos (vectores propios, se ven bien en cualquier dispositivo)
+    const SVG_PALO = {
+      oro: '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="#fbbf24" stroke="#b45309" stroke-width="2.5"/><circle cx="24" cy="24" r="13" fill="none" stroke="#b45309" stroke-width="2" opacity=".7"/><circle cx="24" cy="24" r="5" fill="#b45309" opacity=".8"/></svg>',
+      copa: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 8H36C36 18 32 24 26 26V34H34V38H14V34H22V26C16 24 12 18 12 8Z" fill="#dc2626" stroke="#7f1d1d" stroke-width="2.5" stroke-linejoin="round"/></svg>',
+      espada: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 3L29 10V30H19V10Z" fill="#93c5fd" stroke="#1e3a8a" stroke-width="2.5" stroke-linejoin="round"/><rect x="11" y="30" width="26" height="5" rx="2.5" fill="#1e3a8a"/><rect x="21.5" y="35" width="5" height="7" fill="#78350f"/><circle cx="24" cy="44.5" r="2.5" fill="#1e3a8a"/></svg>',
+      basto: '<svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(35 24 24)"><rect x="21" y="16" width="6" height="28" rx="3" fill="#16a34a" stroke="#14532d" stroke-width="2.5"/><ellipse cx="24" cy="13" rx="9" ry="10" fill="#22c55e" stroke="#14532d" stroke-width="2.5"/></g></svg>',
+      comodin: '<svg viewBox="0 0 48 48" aria-hidden="true"><polygon points="24,4 29.5,18 44,18.5 32.5,28 36.5,43 24,34.5 11.5,43 15.5,28 4,18.5 18.5,18" fill="#a855f7" stroke="#581c87" stroke-width="2.5" stroke-linejoin="round"/></svg>',
+    };
     const PODER_TEXTO = {
       "ver-propia": "Poder del 7: elegí una carta tuya para mirarla",
       "ver-ajena": "Poder del 8: elegí una carta de otro jugador para mirarla",
@@ -134,21 +499,78 @@
       try { sessionStorage.removeItem("malandro-sala"); } catch (e) {}
     }
 
-    function mostrarMensaje(texto) {
+    // Aviso flotante. Se borra solo a los 6 segundos, salvo que sea "fijo".
+    let temporizadorMensaje = null;
+    function mostrarMensaje(texto, fijo) {
       $("mensaje").textContent = texto;
+      clearTimeout(temporizadorMensaje);
+      if (texto && !fijo) {
+        temporizadorMensaje = setTimeout(() => { $("mensaje").textContent = ""; }, 6000);
+      }
     }
 
+    // Texto de una carta (para los mensajes)
     function textoCarta(c) {
-      if (c.palo === "comodin") return "🃏 0";
-      return c.valor + " " + ICONOS[c.palo];
+      if (c.palo === "comodin") return "Comodín";
+      return c.valor + " de " + c.palo;
     }
 
-    function crearCarta(texto, clases) {
+    // Carta boca arriba
+    function cartaFrente(c, extra) {
+      const palo = SVG_PALO[c.palo] ? c.palo : "comodin";
+      const numero = String(Number(c.valor));
       const d = document.createElement("div");
-      d.className = "carta " + clases;
-      d.textContent = texto;
+      d.className = "carta frente palo-" + palo + (extra ? " " + extra : "");
+
+      const arriba = document.createElement("span");
+      arriba.className = "esq arriba";
+      arriba.textContent = numero;
+      const icono = document.createElement("span");
+      icono.className = "icono";
+      icono.innerHTML = SVG_PALO[palo];
+      const abajo = document.createElement("span");
+      abajo.className = "esq abajo";
+      abajo.textContent = numero;
+
+      d.appendChild(arriba);
+      d.appendChild(icono);
+      d.appendChild(abajo);
       return d;
     }
+
+    // Carta boca abajo
+    function cartaDorso(texto, extra) {
+      const d = document.createElement("div");
+      d.className = "carta dorso" + (extra ? " " + extra : "");
+      const s = document.createElement("span");
+      s.textContent = texto;
+      d.appendChild(s);
+      return d;
+    }
+
+    // Circulo de color con la inicial del jugador
+    function crearAvatar(nombre, indice) {
+      const a = document.createElement("span");
+      a.className = "avatar";
+      a.textContent = (nombre.charAt(0) || "?").toUpperCase();
+      a.style.background = "hsl(" + ((indice * 67 + 20) % 360) + ", 65%, 42%)";
+      return a;
+    }
+
+    function crearEtiqueta(texto, oro) {
+      const e = document.createElement("span");
+      e.className = "etiqueta" + (oro ? " oro" : "");
+      e.textContent = texto;
+      return e;
+    }
+
+    // Abanico de cartas decorativo de la pantalla de inicio
+    [
+      { palo: "oro", valor: 7 },
+      { palo: "copa", valor: 12 },
+      { palo: "espada", valor: 1 },
+      { palo: "basto", valor: 9 },
+    ].forEach((c) => $("abanico").appendChild(cartaFrente(c, "grande")));
 
     // Vuelve a la pantalla de inicio y borra todo lo de la partida
     function volverAlInicio() {
@@ -199,7 +621,7 @@
         if (r.error) {
           olvidarSala();
           volverAlInicio();
-          mostrarMensaje(r.error + ". Entrá de nuevo con el código de la sala.");
+          mostrarMensaje(r.error + ". Entrá de nuevo con el código de la sala.", true);
         } else {
           mostrarMensaje("");
         }
@@ -208,9 +630,9 @@
 
     socket.on("disconnect", (motivo) => {
       if (motivo === "io server disconnect") {
-        mostrarMensaje("Esta sesión se abrió en otra pestaña. Cerrá esta.");
+        mostrarMensaje("Esta sesión se abrió en otra pestaña. Cerrá esta.", true);
       } else {
-        mostrarMensaje("Se perdió la conexión. Reconectando...");
+        mostrarMensaje("Se perdió la conexión. Reconectando...", true);
       }
     });
 
@@ -253,20 +675,31 @@
 
       $("inicio").classList.add("oculto");
       $("sala").classList.remove("oculto");
-      $("codigo-sala").textContent = sala.codigo;
+
+      // El codigo se muestra en fichas, una por letra
+      const fichas = $("codigo-sala");
+      fichas.innerHTML = "";
+      for (const letra of sala.codigo) {
+        const f = document.createElement("span");
+        f.textContent = letra;
+        fichas.appendChild(f);
+      }
       $("cantidad").textContent = sala.jugadores.length;
 
       const soyAnfitrion = sala.anfitrion === socket.id;
       const lista = $("lista");
       lista.innerHTML = "";
-      for (const j of sala.jugadores) {
+      sala.jugadores.forEach((j, i) => {
         const item = document.createElement("li");
-        let texto = j.nombre;
-        if (j.id === sala.anfitrion) texto += " (anfitrión)";
-        if (j.id === socket.id) texto += " (vos)";
-        item.textContent = texto;
+        item.appendChild(crearAvatar(j.nombre, i));
+        const nom = document.createElement("span");
+        nom.className = "nom";
+        nom.textContent = j.nombre;
+        item.appendChild(nom);
+        if (j.id === sala.anfitrion) item.appendChild(crearEtiqueta("anfitrión", true));
+        if (j.id === socket.id) item.appendChild(crearEtiqueta("vos"));
         lista.appendChild(item);
-      }
+      });
 
       $("limite").value = String(sala.limite);
       $("limite").disabled = !soyAnfitrion || sala.enJuego;
@@ -383,7 +816,7 @@
         boton("Cancelar", () => {
           modo = null;
           dibujarMesa();
-        });
+        }, "btn-sec");
         return;
       }
       if (mesa.enMano) {
@@ -391,7 +824,7 @@
           modo = "cambiar";
           dibujarMesa();
         });
-        boton("Descartarla", () => jugada("descartar-mano", []));
+        boton("Descartarla", () => jugada("descartar-mano", []), "btn-sec");
       } else if (mesa.accionHecha) {
         if (mesa.puedoTerminar) boton("Terminar turno", () => jugada("terminar-turno", []));
         if (mesa.puedoCantar) boton("¡Cantar MALANDRO!", () => jugada("cantar-malandro", []), "btn-canto");
@@ -400,7 +833,7 @@
         boton("Levantar el descarte", () => {
           modo = "levantar";
           dibujarMesa();
-        });
+        }, "btn-sec");
       }
     }
 
@@ -414,27 +847,43 @@
       caja.classList.remove("oculto");
       caja.innerHTML = "";
 
-      function linea(texto, clase) {
+      function texto(clase, contenido) {
         const p = document.createElement("p");
-        p.textContent = texto;
-        if (clase) p.className = clase;
+        p.className = clase;
+        p.textContent = contenido;
         caja.appendChild(p);
       }
 
       const quien = mesa.jugadores[r.cantó].nombre;
       if (r.cantoGano) {
-        linea(quien + " cantó MALANDRO y tenía el menor total: suma 0.", "titulo");
+        texto("titulo", quien + " cantó MALANDRO y tenía el menor total: suma 0.");
       } else {
-        linea(quien + " cantó MALANDRO pero NO tenía el menor total: suma su total + 10.", "titulo");
+        texto("titulo", quien + " cantó MALANDRO pero NO tenía el menor total: suma su total + 10.");
       }
+
       mesa.jugadores.forEach((j, i) => {
-        let t = j.nombre + ": " + r.totales[i] + " en cartas → suma " + r.sumados[i];
-        t += " (acumulado: " + r.puntosAcumulados[i] + ")";
-        linea(t);
+        const fila = document.createElement("div");
+        fila.className = "res-fila" + (i === r.cantó ? " cantor" : "");
+
+        function parte(clase, contenido) {
+          const s = document.createElement("span");
+          s.className = clase;
+          s.textContent = contenido;
+          fila.appendChild(s);
+        }
+        parte("nom", j.nombre);
+        parte("detalle", r.totales[i] + " en cartas");
+        parte("suma", "+" + r.sumados[i]);
+        parte("detalle", "acumulado: " + r.puntosAcumulados[i]);
+        caja.appendChild(fila);
       });
+
       if (r.partidaTerminada) {
         const nombres = r.ganadores.map((i) => mesa.jugadores[i].nombre).join(" y ");
-        linea("🏆 " + (r.ganadores.length > 1 ? "Ganan: " : "Gana: ") + nombres, "titulo");
+        const g = document.createElement("div");
+        g.className = "ganador";
+        g.textContent = "🏆 " + (r.ganadores.length > 1 ? "Ganan: " : "Gana: ") + nombres;
+        caja.appendChild(g);
       }
     }
 
@@ -451,6 +900,7 @@
       if (mesa.poder !== "cambiar") selPropia = null;
 
       $("estado").textContent = textoEstado();
+      $("estado").className = esMiTurno() || puedoElegir() ? "mi-turno" : "";
 
       // Aviso de ultima vuelta
       const aviso = $("aviso-canto");
@@ -464,29 +914,25 @@
       // Centro: mazo, descarte y carta en mano
       const centro = $("centro");
       centro.innerHTML = "";
-      const pilaMazo = document.createElement("div");
-      pilaMazo.className = "pila";
-      pilaMazo.appendChild(crearCarta("Mazo", "dorso"));
-      const cant = document.createElement("div");
-      cant.textContent = mesa.mazo + " cartas";
-      pilaMazo.appendChild(cant);
-      const pilaDescarte = document.createElement("div");
-      pilaDescarte.className = "pila";
-      pilaDescarte.appendChild(crearCarta(textoCarta(mesa.descarte), "frente"));
-      const etiqueta = document.createElement("div");
-      etiqueta.textContent = "Descarte";
-      pilaDescarte.appendChild(etiqueta);
-      centro.appendChild(pilaMazo);
-      centro.appendChild(pilaDescarte);
-      if (mesa.hayCartaEnMano && mesa.fase === "jugando") {
-        const pilaMano = document.createElement("div");
-        pilaMano.className = "pila";
-        if (mesa.enMano) pilaMano.appendChild(crearCarta(textoCarta(mesa.enMano), "frente"));
-        else pilaMano.appendChild(crearCarta("?", "dorso"));
+
+      function pila(carta, etiqueta) {
+        const div = document.createElement("div");
+        div.className = "pila";
+        div.appendChild(carta);
         const et = document.createElement("div");
-        et.textContent = "En mano";
-        pilaMano.appendChild(et);
-        centro.appendChild(pilaMano);
+        et.className = "et";
+        et.textContent = etiqueta;
+        div.appendChild(et);
+        centro.appendChild(div);
+      }
+
+      pila(cartaDorso("M", "grande mazo-pila"), mesa.mazo + " cartas");
+      pila(cartaFrente(mesa.descarte, "grande"), "Descarte");
+      if (mesa.hayCartaEnMano && mesa.fase === "jugando") {
+        pila(
+          mesa.enMano ? cartaFrente(mesa.enMano, "grande nueva") : cartaDorso("?", "grande"),
+          "En mano"
+        );
       }
 
       dibujarResultado();
@@ -500,17 +946,26 @@
       const cont = $("jugadores");
       cont.innerHTML = "";
       mesa.jugadores.forEach((j, i) => {
-        const caja = document.createElement("div");
         const turnoDeEste = mesa.fase === "jugando" && mesa.turno === i;
-        caja.className = "caja" + (turnoDeEste ? " turno" : "");
+        const caja = document.createElement("div");
+        caja.className =
+          "jugador" + (i === mesa.yo ? " yo" : "") + (turnoDeEste ? " turno" : "") + (!j.conectado ? " off" : "");
 
         const nombre = document.createElement("div");
         nombre.className = "nombre-jugador";
-        let texto = j.nombre;
-        if (i === mesa.yo) texto += " (vos)";
-        if (!j.conectado) texto += " (desconectado)";
-        texto += " — " + j.puntos + " pts";
-        nombre.textContent = texto;
+        nombre.appendChild(crearAvatar(j.nombre, i));
+        const nom = document.createElement("span");
+        nom.className = "nom";
+        nom.textContent = j.nombre;
+        nombre.appendChild(nom);
+        if (i === mesa.yo) nombre.appendChild(crearEtiqueta("vos"));
+        if (turnoDeEste) nombre.appendChild(crearEtiqueta("turno", true));
+        if (mesa.fase === "jugando" && mesa.cantó === i) nombre.appendChild(crearEtiqueta("cantó", true));
+        if (!j.conectado) nombre.appendChild(crearEtiqueta("desconectado"));
+        const pts = document.createElement("span");
+        pts.className = "pts";
+        pts.textContent = j.puntos + " pts";
+        nombre.appendChild(pts);
         caja.appendChild(nombre);
 
         const fila = document.createElement("div");
@@ -520,11 +975,11 @@
           let carta;
           if (mesa.resultado) {
             // Fin de ronda: todas las cartas se dan vuelta
-            carta = crearCarta(textoCarta(mesa.resultado.cartas[i][p]), "frente");
+            carta = cartaFrente(mesa.resultado.cartas[i][p]);
           } else if (reveladas[clave]) {
-            carta = crearCarta(textoCarta(reveladas[clave].carta), "frente");
+            carta = cartaFrente(reveladas[clave].carta);
           } else {
-            carta = crearCarta("?", "dorso");
+            carta = cartaDorso("?");
           }
 
           if (!mesa.resultado) {
@@ -586,6 +1041,29 @@
       $("mesa").classList.remove("oculto");
       dibujarMesa();
     });
-  </script>
+  
+    // ---------- Reglas del juego (boton ?) ----------
+    let focoPrevio = null;
+    function abrirReglas() {
+      focoPrevio = document.activeElement;
+      $("reglas").classList.remove("oculto");
+      $("reglas").querySelector(".cuerpo").scrollTop = 0;
+      document.body.style.overflow = "hidden";
+      $("btn-cerrar-reglas").focus();
+    }
+    function cerrarReglas() {
+      $("reglas").classList.add("oculto");
+      document.body.style.overflow = "";
+      if (focoPrevio && focoPrevio.focus) focoPrevio.focus();
+    }
+    $("btn-ayuda").onclick = abrirReglas;
+    $("btn-cerrar-reglas").onclick = cerrarReglas;
+    $("reglas").onclick = (e) => {
+      if (e.target === $("reglas")) cerrarReglas();
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !$("reglas").classList.contains("oculto")) cerrarReglas();
+    });
+</script>
 </body>
 </html>

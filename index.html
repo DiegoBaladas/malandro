@@ -318,6 +318,15 @@
     #reglas p, #reglas li { margin: 6px 0; font-size: 15px; line-height: 1.55; color: #ecfdf5; }
     #reglas ul { margin: 6px 0; padding-left: 20px; }
     #reglas strong { color: #fde68a; }
+  
+      /* ---------- Boton de sonido ---------- */
+    #btn-sonido {
+      position: fixed; top: 12px; left: 12px; z-index: 20;
+      width: 42px; height: 42px; min-height: 0; margin: 0; padding: 0;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #btn-sonido svg { width: 22px; height: 22px; display: block; }
   </style>
 </head>
 <body>
@@ -379,6 +388,7 @@
 
   <p id="mensaje"></p>
     <button id="btn-ayuda" aria-label="Reglas del juego" title="Reglas del juego">?</button>
+      <button id="btn-sonido" class="btn-sec" aria-label="Silenciar sonidos" title="Sonido"></button>
 
   <div id="reglas" class="oculto" role="dialog" aria-modal="true" aria-labelledby="reglas-titulo">
     <div class="panel">
@@ -505,6 +515,7 @@
       $("mensaje").textContent = texto;
       clearTimeout(temporizadorMensaje);
       if (texto && !fijo) {
+        sonido("error");
         temporizadorMensaje = setTimeout(() => { $("mensaje").textContent = ""; }, 6000);
       }
     }
@@ -1035,6 +1046,7 @@
         seleccion = [];
         reveladas = {};
       }
+      sonarCambios(mesa, datos);
       mesa = datos;
       $("inicio").classList.add("oculto");
       $("sala").classList.add("oculto");
@@ -1064,6 +1076,240 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !$("reglas").classList.contains("oculto")) cerrarReglas();
     });
+
+    // ---------- Sonidos (se generan en el navegador, no hay archivos de audio) ----------
+    let audioCtx = null;
+    let volumenGeneral = null;
+    let sonidoActivo = true;
+    try { sonidoActivo = localStorage.getItem("malandro-sonido") !== "no"; } catch (e) {}
+
+    // El navegador solo permite sonar despues de que la persona toca la pantalla
+    function obtenerAudio() {
+      if (!audioCtx) {
+        const Motor = window.AudioContext || window.webkitAudioContext;
+        if (!Motor) return null;
+        try {
+          audioCtx = new Motor();
+          volumenGeneral = audioCtx.createGain();
+          volumenGeneral.gain.value = 0.8;
+          volumenGeneral.connect(audioCtx.destination);
+        } catch (e) {
+          audioCtx = null;
+          return null;
+        }
+      }
+      if (audioCtx.state === "suspended") {
+        const promesa = audioCtx.resume();
+        if (promesa && promesa.catch) promesa.catch(() => {});
+      }
+      return audioCtx;
+    }
+    ["pointerdown", "touchend", "keydown"].forEach((ev) =>
+      document.addEventListener(ev, obtenerAudio, { passive: true })
+    );
+
+    // Una nota: frecuencia (Hz), cuando empieza (seg), cuanto dura, tipo de onda, volumen y nota final opcional
+    function tono(frecuencia, inicio, duracion, tipo, volumen, hasta) {
+      const t0 = audioCtx.currentTime + inicio;
+      const osc = audioCtx.createOscillator();
+      const gan = audioCtx.createGain();
+      osc.type = tipo || "sine";
+      osc.frequency.setValueAtTime(frecuencia, t0);
+      if (hasta) osc.frequency.exponentialRampToValueAtTime(hasta, t0 + duracion);
+      gan.gain.setValueAtTime(0.0001, t0);
+      gan.gain.exponentialRampToValueAtTime(volumen || 0.15, t0 + 0.012);
+      gan.gain.exponentialRampToValueAtTime(0.0001, t0 + duracion);
+      osc.connect(gan);
+      gan.connect(volumenGeneral);
+      osc.start(t0);
+      osc.stop(t0 + duracion + 0.05);
+    }
+
+    // Un golpecito de ruido (suena como el roce de una carta)
+    function ruido(inicio, duracion, frecuencia, volumen) {
+      const n = Math.max(1, Math.floor(audioCtx.sampleRate * duracion));
+      const buffer = audioCtx.createBuffer(1, n, audioCtx.sampleRate);
+      const datos = buffer.getChannelData(0);
+      for (let i = 0; i < n; i++) {
+        datos[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2);
+      }
+      const fuente = audioCtx.createBufferSource();
+      fuente.buffer = buffer;
+      const filtro = audioCtx.createBiquadFilter();
+      filtro.type = "bandpass";
+      filtro.frequency.value = frecuencia;
+      filtro.Q.value = 0.9;
+      const gan = audioCtx.createGain();
+      gan.gain.value = volumen;
+      fuente.connect(filtro);
+      filtro.connect(gan);
+      gan.connect(volumenGeneral);
+      fuente.start(audioCtx.currentTime + inicio);
+    }
+
+    const SONIDOS = {
+      tic: () => tono(900, 0, 0.05, "triangle", 0.06),
+      sacar: () => ruido(0, 0.1, 2600, 0.5),
+      descartar: () => {
+        ruido(0, 0.12, 1300, 0.55);
+        tono(170, 0, 0.12, "sine", 0.18, 80);
+      },
+      repartir: () => {
+        for (let i = 0; i < 6; i++) ruido(i * 0.1, 0.07, 2800, 0.4);
+      },
+      mirar: () => {
+        tono(660, 0, 0.12, "sine", 0.12);
+        tono(990, 0.09, 0.2, "sine", 0.1);
+      },
+      poder: () => {
+        [523, 659, 784, 1047].forEach((f, i) => tono(f, i * 0.08, 0.22, "triangle", 0.14));
+        tono(2093, 0.34, 0.3, "sine", 0.05);
+      },
+      cambio: () => {
+        ruido(0, 0.3, 1600, 0.35);
+        tono(300, 0, 0.18, "sine", 0.12, 900);
+        tono(900, 0.18, 0.18, "sine", 0.1, 350);
+      },
+      turno: () => {
+        tono(784, 0, 0.2, "sine", 0.18);
+        tono(1175, 0.13, 0.35, "sine", 0.18);
+      },
+      cantar: () => {
+        tono(98, 0, 0.7, "sine", 0.3, 55);
+        tono(392, 0, 0.15, "square", 0.1);
+        tono(392, 0.18, 0.15, "square", 0.1);
+        tono(523, 0.36, 0.5, "square", 0.12);
+      },
+      revelar: () => {
+        for (let i = 0; i < 4; i++) ruido(i * 0.07, 0.07, 3200, 0.4);
+      },
+      acierto: () => {
+        tono(659, 0, 0.12, "triangle", 0.16);
+        tono(880, 0.1, 0.25, "triangle", 0.16);
+      },
+      fallo: () => {
+        tono(330, 0, 0.2, "sawtooth", 0.1, 260);
+        tono(247, 0.18, 0.35, "sawtooth", 0.1, 180);
+      },
+      ganar: () => {
+        [[523, 0], [659, 0.13], [784, 0.26], [1047, 0.42]].forEach(([f, t]) =>
+          tono(f, t, 0.3, "triangle", 0.18)
+        );
+        tono(1047, 0.42, 0.7, "sine", 0.1);
+        tono(1319, 0.62, 0.7, "triangle", 0.12);
+        tono(1568, 0.62, 0.7, "sine", 0.08);
+      },
+      terminar: () => {
+        [[392, 0], [330, 0.22], [262, 0.44]].forEach(([f, t]) => tono(f, t, 0.35, "sine", 0.16));
+      },
+      error: () => {
+        tono(180, 0, 0.16, "square", 0.09, 130);
+        tono(130, 0.14, 0.22, "square", 0.09, 100);
+      },
+    };
+
+    // Reproduce un sonido (con un retraso opcional en segundos)
+    function sonido(nombre, retraso) {
+      if (!sonidoActivo) return;
+      if (retraso) {
+        setTimeout(() => sonido(nombre), retraso * 1000);
+        return;
+      }
+      const ctx = obtenerAudio();
+      if (!ctx || ctx.state !== "running") return;
+      try {
+        SONIDOS[nombre]();
+      } catch (e) {}
+    }
+
+    // Compara la mesa de antes con la nueva y decide que sonido corresponde
+    function sonarCambios(antes, ahora) {
+      try {
+        const mioAhora = ahora.fase === "jugando" && ahora.turno === ahora.yo;
+
+        // Primera vez que se ve la mesa (empieza la partida o se recargo la pagina)
+        if (!antes) {
+          if (ahora.fase === "mirando") sonido("repartir");
+          else if (mioAhora) sonido("turno");
+          return;
+        }
+        const mioAntes = antes.fase === "jugando" && antes.turno === antes.yo;
+
+        // Fin de ronda: se dan vuelta las cartas
+        if (ahora.resultado && !antes.resultado) {
+          sonido("revelar");
+          if (ahora.resultado.partidaTerminada) {
+            sonido(ahora.resultado.ganadores.includes(ahora.yo) ? "ganar" : "terminar", 1.1);
+          } else {
+            sonido(ahora.resultado.cantoGano ? "acierto" : "fallo", 0.6);
+          }
+          return;
+        }
+
+        // Empieza una ronda nueva
+        if (ahora.fase === "mirando" && antes.fase !== "mirando") {
+          sonido("repartir");
+          return;
+        }
+
+        // Yo mire mis 2 cartas del principio
+        if (
+          antes.fase === "mirando" &&
+          !antes.jugadores[ahora.yo].listo &&
+          ahora.jugadores[ahora.yo].listo
+        ) {
+          sonido("mirar");
+        }
+
+        if (ahora.fase !== "jugando") return;
+
+        let espera = 0.45;
+        if (ahora.cantó !== null && antes.cantó === null) {
+          sonido("cantar");
+          espera = 1.0;
+        } else if (ahora.poder && !antes.poder) {
+          sonido("poder");
+        } else if (antes.poder && !ahora.poder) {
+          sonido(antes.poder === "cambiar" ? "cambio" : "mirar");
+        } else if (!antes.hayCartaEnMano && ahora.hayCartaEnMano) {
+          sonido("sacar");
+        } else if (
+          ahora.descarte.palo !== antes.descarte.palo ||
+          ahora.descarte.valor !== antes.descarte.valor
+        ) {
+          sonido("descartar");
+        }
+
+        // Me toca a mi
+        if (mioAhora && !mioAntes) sonido("turno", espera);
+      } catch (e) {}
+    }
+
+    // "tic" al tocar botones y cartas (menos el boton de sonido)
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest) return;
+      if (e.target.closest("#btn-sonido")) return;
+      if (e.target.closest("button, .elegible")) sonido("tic");
+    });
+
+    // ---------- Boton de silencio ----------
+    const ICONO_SONIDO = {
+      on: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
+      off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor"/><path d="m16 9 6 6"/><path d="m22 9-6 6"/></svg>',
+    };
+    function dibujarBotonSonido() {
+      const b = $("btn-sonido");
+      b.innerHTML = sonidoActivo ? ICONO_SONIDO.on : ICONO_SONIDO.off;
+      b.setAttribute("aria-label", sonidoActivo ? "Silenciar sonidos" : "Activar sonidos");
+      b.title = sonidoActivo ? "Silenciar sonidos" : "Activar sonidos";
+    }
+    $("btn-sonido").onclick = () => {
+      sonidoActivo = !sonidoActivo;
+      try { localStorage.setItem("malandro-sonido", sonidoActivo ? "si" : "no"); } catch (e) {}
+      dibujarBotonSonido();
+      if (sonidoActivo) sonido("mirar");
+    };
+    dibujarBotonSonido();
 </script>
 </body>
 </html>

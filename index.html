@@ -327,6 +327,19 @@
       display: flex; align-items: center; justify-content: center;
     }
     #btn-sonido svg { width: 22px; height: 22px; display: block; }
+      /* ---------- Cartel de MALANDRO y confeti ---------- */
+    #cartel {
+      position: fixed; left: 50%; top: 40%; z-index: 40;
+      transform: translate(-50%, -50%) rotate(-3deg);
+      text-align: center; pointer-events: none;
+      padding: 18px 34px; border-radius: 22px;
+      background: linear-gradient(180deg, #ef4444, #991b1b);
+      border: 4px solid #fde68a;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    }
+    #cartel .g { font-size: clamp(34px, 11vw, 64px); font-weight: 800; letter-spacing: 0.06em; color: #fff; text-shadow: 0 4px 0 #7f1d1d; }
+    #cartel .p { font-size: clamp(16px, 4.5vw, 24px); font-weight: 600; color: #fde68a; }
+    #confeti { position: fixed; inset: 0; z-index: 35; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -389,6 +402,8 @@
   <p id="mensaje"></p>
     <button id="btn-ayuda" aria-label="Reglas del juego" title="Reglas del juego">?</button>
       <button id="btn-sonido" class="btn-sec" aria-label="Silenciar sonidos" title="Sonido"></button>
+        <div id="cartel" class="oculto"></div>
+  <canvas id="confeti" class="oculto"></canvas>
 
   <div id="reglas" class="oculto" role="dialog" aria-modal="true" aria-labelledby="reglas-titulo">
     <div class="panel">
@@ -941,7 +956,7 @@
       pila(cartaFrente(mesa.descarte, "grande"), "Descarte");
       if (mesa.hayCartaEnMano && mesa.fase === "jugando") {
         pila(
-          mesa.enMano ? cartaFrente(mesa.enMano, "grande nueva") : cartaDorso("?", "grande"),
+          mesa.enMano ? cartaFrente(mesa.enMano, "grande") : cartaDorso("?", "grande"),
           "En mano"
         );
       }
@@ -1310,6 +1325,246 @@
       if (sonidoActivo) sonido("mirar");
     };
     dibujarBotonSonido();
+
+    // ---------- Animaciones ----------
+    function reducirMovimiento() {
+      return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    }
+
+    // Anima un elemento (si el navegador lo permite y la persona no pidio reducir movimiento)
+    function animar(el, frames, opciones) {
+      if (!el || !el.animate || reducirMovimiento()) return null;
+      try {
+        return el.animate(frames, opciones);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Hace que una carta "vuele" desde un rectangulo de origen hasta el lugar donde esta ahora
+    function volarDesde(el, origen, retraso, duracion) {
+      if (!el || !origen) return;
+      const destino = el.getBoundingClientRect();
+      const dx = origen.left + origen.width / 2 - (destino.left + destino.width / 2);
+      const dy = origen.top + origen.height / 2 - (destino.top + destino.height / 2);
+      animar(
+        el,
+        [
+          { transform: "translate(" + dx + "px, " + dy + "px) scale(0.55) rotate(-12deg)", opacity: 0.2 },
+          { transform: "none", opacity: 1 },
+        ],
+        {
+          duration: duracion || 420,
+          delay: retraso || 0,
+          easing: "cubic-bezier(0.2, 0.8, 0.3, 1)",
+          fill: "backwards",
+        }
+      );
+    }
+
+    // Giro de una carta que se da vuelta
+    function girar(el, retraso, duracion) {
+      animar(
+        el,
+        [
+          { transform: "perspective(500px) rotateY(88deg)" },
+          { transform: "perspective(500px) rotateY(0deg)" },
+        ],
+        { duration: duracion || 320, delay: retraso || 0, easing: "ease-out", fill: "backwards" }
+      );
+    }
+
+    // Guarda donde estaban los cuadros de los jugadores (para saber de donde sale una carta)
+    function tomarRects() {
+      const r = { jugadores: [] };
+      document
+        .querySelectorAll("#jugadores .jugador")
+        .forEach((caja) => r.jugadores.push(caja.getBoundingClientRect()));
+      return r;
+    }
+
+    // Cada vez que se redibuja la mesa: se anima el giro de las cartas que cambiaron de cara
+    let rectsAntes = { jugadores: [] };
+    let frentesPrevios = new Set();
+    let huboResultado = false;
+    const dibujarMesaBase = dibujarMesa;
+    dibujarMesa = function () {
+      rectsAntes = tomarRects();
+      dibujarMesaBase();
+      if (!mesa) return;
+
+      const ahora = new Set();
+      const elementos = {};
+      document.querySelectorAll("#jugadores .jugador").forEach((caja, i) => {
+        caja.querySelectorAll(".fila .carta").forEach((carta, p) => {
+          const clave = i + "-" + p;
+          elementos[clave] = carta;
+          if (carta.classList.contains("frente")) ahora.add(clave);
+        });
+      });
+
+      // Las que ahora se ven y antes no: giran para mostrarse
+      let n = 0;
+      ahora.forEach((clave) => {
+        if (!frentesPrevios.has(clave)) girar(elementos[clave], n++ * 45);
+      });
+      // Las que se vuelven a tapar: giran un poco mas rapido (salvo al terminar la ronda)
+      if (!mesa.resultado && !huboResultado) {
+        frentesPrevios.forEach((clave) => {
+          if (!ahora.has(clave) && elementos[clave]) girar(elementos[clave], 0, 220);
+        });
+      }
+      frentesPrevios = ahora;
+      huboResultado = !!mesa.resultado;
+    };
+
+    // ---------- Cartel de MALANDRO ----------
+    let temporizadorCartel = null;
+    function mostrarCartel(titulo, subtitulo) {
+      const c = $("cartel");
+      c.innerHTML = "";
+      const t = document.createElement("div");
+      t.className = "g";
+      t.textContent = titulo;
+      const s = document.createElement("div");
+      s.className = "p";
+      s.textContent = subtitulo;
+      c.appendChild(t);
+      c.appendChild(s);
+      c.classList.remove("oculto");
+      animar(
+        c,
+        [
+          { opacity: 0, transform: "translate(-50%, -50%) scale(0.4) rotate(-8deg)" },
+          { opacity: 1, transform: "translate(-50%, -50%) scale(1.1) rotate(-3deg)", offset: 0.22 },
+          { opacity: 1, transform: "translate(-50%, -50%) scale(1) rotate(-3deg)", offset: 0.8 },
+          { opacity: 0, transform: "translate(-50%, -50%) scale(1.25) rotate(-3deg)" },
+        ],
+        { duration: 1900 }
+      );
+      clearTimeout(temporizadorCartel);
+      temporizadorCartel = setTimeout(() => c.classList.add("oculto"), 1900);
+    }
+
+    // ---------- Confeti ----------
+    let confetiActivo = false;
+    function lanzarConfeti() {
+      if (confetiActivo || reducirMovimiento()) return;
+      const lienzo = $("confeti");
+      if (!lienzo || !lienzo.getContext) return;
+      confetiActivo = true;
+      lienzo.width = window.innerWidth;
+      lienzo.height = window.innerHeight;
+      lienzo.classList.remove("oculto");
+      const ctx = lienzo.getContext("2d");
+      const colores = ["#fbbf24", "#f87171", "#60a5fa", "#4ade80", "#c084fc", "#ffffff"];
+      const piezas = [];
+      for (let i = 0; i < 150; i++) {
+        piezas.push({
+          x: Math.random() * lienzo.width,
+          y: -20 - Math.random() * lienzo.height * 0.6,
+          vx: (Math.random() - 0.5) * 3,
+          vy: 2 + Math.random() * 3.5,
+          ancho: 6 + Math.random() * 6,
+          alto: 10 + Math.random() * 8,
+          giro: Math.random() * 6.28,
+          vgiro: (Math.random() - 0.5) * 0.3,
+          color: colores[i % colores.length],
+        });
+      }
+      const inicio = performance.now();
+      function cuadro(ahora) {
+        ctx.clearRect(0, 0, lienzo.width, lienzo.height);
+        for (const p of piezas) {
+          p.x += p.vx + Math.sin(p.giro) * 0.8;
+          p.y += p.vy;
+          p.giro += p.vgiro;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.giro);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.ancho / 2, -p.alto / 2, p.ancho, p.alto);
+          ctx.restore();
+        }
+        if (ahora - inicio < 5000) {
+          requestAnimationFrame(cuadro);
+        } else {
+          ctx.clearRect(0, 0, lienzo.width, lienzo.height);
+          lienzo.classList.add("oculto");
+          confetiActivo = false;
+        }
+      }
+      requestAnimationFrame(cuadro);
+    }
+
+    // ---------- Animaciones segun lo que paso en la mesa ----------
+    function animarCambios(antes, ahora) {
+      const pilas = document.querySelectorAll("#centro .pila");
+      const cartaMazo = pilas[0] && pilas[0].querySelector(".carta");
+      const cartaDescarte = pilas[1] && pilas[1].querySelector(".carta");
+      const cartaMano = pilas[2] && pilas[2].querySelector(".carta");
+      const rectMazo = cartaMazo ? cartaMazo.getBoundingClientRect() : null;
+
+      // 1) Empieza una ronda: se reparten las cartas desde el mazo
+      if (ahora.fase === "mirando" && (!antes || antes.fase !== "mirando")) {
+        const cajas = document.querySelectorAll("#jugadores .jugador");
+        const n = cajas.length;
+        cajas.forEach((caja, i) => {
+          caja.querySelectorAll(".fila .carta").forEach((carta, p) => {
+            volarDesde(carta, rectMazo, (p * n + i) * 55, 450);
+          });
+        });
+        volarDesde(cartaDescarte, rectMazo, 4 * n * 55 + 80, 450);
+        return;
+      }
+
+      // 2) Termina la ronda: el resultado aparece despues de que se den vuelta las cartas
+      if (ahora.resultado && (!antes || !antes.resultado)) {
+        const cantidad = document.querySelectorAll("#jugadores .fila .carta").length;
+        const base = cantidad * 45 + 350;
+        document.querySelectorAll("#resultado > *").forEach((el, k) => {
+          animar(
+            el,
+            [
+              { opacity: 0, transform: "translateY(14px)" },
+              { opacity: 1, transform: "none" },
+            ],
+            { duration: 360, delay: base + k * 110, easing: "ease-out", fill: "backwards" }
+          );
+        });
+        if (antes && ahora.resultado.partidaTerminada && ahora.resultado.ganadores.includes(ahora.yo)) {
+          setTimeout(lanzarConfeti, 1100);
+        }
+        return;
+      }
+
+      if (!antes || antes.fase !== "jugando" || ahora.fase !== "jugando") return;
+
+      // 3) Alguien canto MALANDRO
+      if (ahora.cantó !== null && antes.cantó === null) {
+        mostrarCartel("¡MALANDRO!", ahora.jugadores[ahora.cantó].nombre + " canta");
+      }
+
+      // 4) Se saco una carta del mazo
+      if (!antes.hayCartaEnMano && ahora.hayCartaEnMano) {
+        volarDesde(cartaMano, rectMazo, 0, 380);
+      }
+
+      // 5) Cambio la carta de arriba del descarte: viene del jugador que acaba de jugar
+      if (ahora.descarte.palo !== antes.descarte.palo || ahora.descarte.valor !== antes.descarte.valor) {
+        volarDesde(cartaDescarte, rectsAntes.jugadores[antes.turno], 0, 420);
+      }
+    }
+
+    // Se registra despues del de arriba, asi que corre cuando la mesa ya esta redibujada
+    let mesaPrevia = null;
+    socket.on("mesa", (datos) => {
+      const antes = mesaPrevia;
+      mesaPrevia = datos;
+      try {
+        animarCambios(antes, datos);
+      } catch (e) {}
+    });
 </script>
 </body>
 </html>

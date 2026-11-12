@@ -340,6 +340,82 @@
     #cartel .g { font-size: clamp(34px, 11vw, 64px); font-weight: 800; letter-spacing: 0.06em; color: #fff; text-shadow: 0 4px 0 #7f1d1d; }
     #cartel .p { font-size: clamp(16px, 4.5vw, 24px); font-weight: 600; color: #fde68a; }
     #confeti { position: fixed; inset: 0; z-index: 35; pointer-events: none; }
+  
+    // ---------- Mazo y descarte tocables (reemplaza a los botones de jugada) ----------
+
+    // Estos botones ya no hacen falta: ahora se toca directamente el mazo, el descarte o una carta
+    const dibujarAccionesBase = dibujarAcciones;
+    dibujarAcciones = function () {
+      dibujarAccionesBase();
+      const sobran = [
+        "Sacar del mazo",
+        "Levantar el descarte",
+        "Cambiarla por una de mis cartas",
+        "Descartarla",
+      ];
+      document.querySelectorAll("#acciones button").forEach((b) => {
+        if (sobran.includes(b.textContent)) b.remove();
+      });
+    };
+
+    // Con una carta en la mano, tocar una carta propia la cambia directamente
+    const manejadorCartaBase = manejadorCarta;
+    manejadorCarta = function (i, p) {
+      if (esMiTurno() && !mesa.poder && mesa.enMano && i === mesa.yo) {
+        return () => jugada("cambiar-mano", [p]);
+      }
+      return manejadorCartaBase(i, p);
+    };
+
+    // Deja tocables el mazo y el descarte segun el momento del turno
+    function activarPilas() {
+      if (!mesa || !esMiTurno() || mesa.poder) return;
+      const pilas = document.querySelectorAll("#centro .pila");
+      const pMazo = pilas[0];
+      const pDescarte = pilas[1];
+      if (!pMazo || !pDescarte) return;
+
+      function activar(pila, etiqueta, accion) {
+        const carta = pila.querySelector(".carta");
+        if (!carta) return;
+        carta.classList.add("tocable");
+        carta.onclick = accion;
+        const et = pila.querySelector(".et");
+        if (et) et.textContent = etiqueta;
+      }
+
+      let estado = null;
+      if (modo === "levantar") {
+        activar(pDescarte, "Cancelar", () => {
+          modo = null;
+          dibujarMesa();
+        });
+        estado = "Elegí cuál de tus cartas cambiar por el descarte";
+      } else if (mesa.enMano) {
+        activar(pDescarte, "Tirar", () => jugada("descartar-mano", []));
+        estado =
+          "Sacaste " + textoCarta(mesa.enMano) + ". Tocá una de tus cartas para cambiarla, o el descarte para tirarla";
+      } else if (!mesa.accionHecha) {
+        activar(pMazo, "Sacar (" + mesa.mazo + ")", () => jugada("sacar-mazo", []));
+        activar(pDescarte, "Levantar", () => {
+          modo = "levantar";
+          dibujarMesa();
+        });
+        estado = "¡Es tu turno! Tocá el mazo para sacar o el descarte para levantar";
+      }
+      if (estado) $("estado").textContent = estado;
+    }
+
+    const dibujarMesaSinPilas = dibujarMesa;
+    dibujarMesa = function () {
+      dibujarMesaSinPilas();
+      activarPilas();
+    };
+
+    // "tic" al tocar el mazo o el descarte
+    document.addEventListener("click", (e) => {
+      if (e.target.closest && e.target.closest(".tocable")) sonido("tic");
+    });
   </style>
 </head>
 <body>
